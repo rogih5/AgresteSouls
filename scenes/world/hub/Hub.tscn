@@ -1,0 +1,113 @@
+[gd_scene load_steps=9 format=3]
+
+[ext_resource type="Script" path="res://scenes/world/hub/Hub.gd" id="1"]
+[ext_resource type="PackedScene" path="res://scenes/ui/HUD.tscn" id="2"]
+[ext_resource type="PackedScene" path="res://scenes/world/Cruzeiro.tscn" id="3"]
+[ext_resource type="Script" path="res://scripts/world/LunarAmbiance.gd" id="4"]
+
+[sub_resource type="RectangleShape2D" id="1"]
+size = Vector2(832.0, 16.0)
+
+[sub_resource type="RectangleShape2D" id="2"]
+size = Vector2(16.0, 640.0)
+
+[sub_resource type="RectangleShape2D" id="3"]
+size = Vector2(32.0, 80.0)
+
+[sub_resource type="RectangleShape2D" id="4"]
+size = Vector2(800.0, 608.0)
+
+[node name="Hub" type="Node2D"]
+script = ExtResource("1")
+
+[node name="LunarAmbiance" type="CanvasModulate" parent="."]
+script = ExtResource("4")
+
+[node name="HUD" parent="." instance=ExtResource("2")]
+
+[node name="PlayerSpawn" type="Marker2D" parent="."]
+position = Vector2(120.0, 300.0)
+
+[node name="Floor" type="ColorRect" parent="."]
+offset_left = 0.0
+offset_top = 0.0
+offset_right = 800.0
+offset_bottom = 608.0
+color = Color(0.18, 0.14, 0.10, 1.0)
+
+[node name="WallVisuals" type="Node2D" parent="."]
+
+[node name="Top" type="ColorRect" parent="WallVisuals"]
+offset_right = 800.0
+offset_bottom = 16.0
+color = Color(0.1, 0.08, 0.06, 1.0)
+
+[node name="Bottom" type="ColorRect" parent="WallVisuals"]
+offset_top = 592.0
+offset_right = 800.0
+offset_bottom = 608.0
+color = Color(0.1, 0.08, 0.06, 1.0)
+
+[node name="Left" type="ColorRect" parent="WallVisuals"]
+offset_right = 16.0
+offset_bottom = 608.0
+color = Color(0.1, 0.08, 0.06, 1.0)
+
+[node name="Right" type="ColorRect" parent="WallVisuals"]
+offset_left = 784.0
+offset_right = 800.0
+offset_bottom = 608.0
+color = Color(0.1, 0.08, 0.06, 1.0)
+
+[node name="Walls" type="Node2D" parent="."]
+
+[node name="WallNorth" type="StaticBody2D" parent="Walls"]
+collision_layer = 1
+collision_mask = 0
+position = Vector2(400.0, -8.0)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Walls/WallNorth"]
+shape = SubResource("1")
+
+[node name="WallSouth" type="StaticBody2D" parent="Walls"]
+collision_layer = 1
+collision_mask = 0
+position = Vector2(400.0, 616.0)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Walls/WallSouth"]
+shape = SubResource("1")
+
+[node name="WallWest" type="StaticBody2D" parent="Walls"]
+collision_layer = 1
+collision_mask = 0
+position = Vector2(-8.0, 304.0)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Walls/WallWest"]
+shape = SubResource("2")
+
+[node name="WallEast" type="StaticBody2D" parent="Walls"]
+collision_layer = 1
+collision_mask = 0
+position = Vector2(808.0, 304.0)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Walls/WallEast"]
+shape = SubResource("2")
+
+[node name="Cruzeiro" parent="." instance=ExtResource("3")]
+position = Vector2(400.0, 300.0)
+
+[node name="ExitToSertao" type="Area2D" parent="."]
+collision_layer = 64
+collision_mask = 2
+position = Vector2(784.0, 300.0)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="ExitToSertao"]
+shape = SubResource("3")
+
+[node name="ExitLabel" type="Label" parent="ExitToSertao"]
+offset_left = -40.0
+offset_top = -30.0
+offset_right = 40.0
+offset_bottom = -14.0
+horizontal_alignment = 1
+text = "→ Sertão"
