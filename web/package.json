@@ -1,0 +1,15 @@
+{
+  "name": "agreste-souls-web",
+  "version": "0.1.0",
+  "description": "Agreste Souls: O Crepúsculo do Sertão — versão web (Three.js + Node/WebSocket co-op)",
+  "type": "module",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node server/index.js"
+  },
+  "dependencies": {
+    "express": "^4.21.0",
+    "three": "^0.170.0",
+    "ws": "^8.18.0"
+  }
+}

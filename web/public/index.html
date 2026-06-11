@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Agreste Souls — O Crepúsculo do Sertão</title>
+  <link rel="stylesheet" href="css/style.css">
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "/vendor/three/build/three.module.js",
+      "three/addons/": "/vendor/three/examples/jsm/"
+    }
+  }
+  </script>
+</head>
+<body>
+  <!-- Menu inicial -->
+  <div id="menu" class="overlay">
+    <div class="menu-box">
+      <h1>AGRESTE SOULS</h1>
+      <p class="subtitle">O Crepúsculo do Sertão</p>
+      <input id="name-input" type="text" maxlength="16" placeholder="Seu nome de retirante" value="">
+      <button id="play-button">Entrar no Sertão</button>
+      <p class="hint">Co-op automático: quem abrir este endereço joga junto.</p>
+      <p id="menu-status" class="status"></p>
+    </div>
+  </div>
+
+  <!-- HUD -->
+  <div id="hud" class="hidden">
+    <div id="bars">
+      <div class="bar hp"><div id="hp-fill"></div></div>
+      <div class="bar stamina"><div id="stamina-fill"></div></div>
+    </div>
+    <div id="amago">
+      <span class="amago-orb"></span><span id="amago-value">0</span>
+    </div>
+    <div id="lunar">
+      <span id="lunar-icon">🌓</span>
+      <span id="lunar-name">Meia Lua Crescente</span>
+    </div>
+    <div id="players-online"></div>
+    <div id="prompt" class="hidden">F — Descansar no Cruzeiro</div>
+    <div id="ghost-hint" class="hidden">✦ Seu Âmago ficou onde você caiu…</div>
+    <div id="controls-hint">WASD mover · J/Clique atacar · Espaço esquiva · F descansar</div>
+  </div>
+
+  <!-- Tela de morte -->
+  <div id="death-screen" class="overlay hidden">
+    <h2>VOCÊ SE FOI</h2>
+    <p>O sertão te reclama de volta…</p>
+  </div>
+
+  <!-- Vinheta de dano -->
+  <div id="damage-vignette"></div>
+
+  <canvas id="game"></canvas>
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
