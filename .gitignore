@@ -9,3 +9,6 @@
 .mono/
 data_*/
 mono_crash.*.json
+
+# Node (versão web)
+node_modules/
