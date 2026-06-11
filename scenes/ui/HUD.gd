@@ -10,6 +10,8 @@ extends CanvasLayer
 @onready var phase_transition_overlay: ColorRect = $PhaseTransitionOverlay
 
 func _ready() -> void:
+	# O jogador local se conecta ao HUD via este grupo ao spawnar.
+	add_to_group("hud")
 	AmagoManager.amago_changed.connect(_on_amago_changed)
 	AmagoManager.ghost_spawned.connect(_on_ghost_spawned)
 	AmagoManager.ghost_collected.connect(_on_ghost_collected)
@@ -20,7 +22,7 @@ func _ready() -> void:
 	_refresh_lunar_display()
 	_on_amago_changed(AmagoManager.current_amago)
 
-## Conecta o HUD a um Player recém-instanciado.
+## Conecta o HUD a um Player recém-instanciado (só o local).
 func connect_player(player: Player) -> void:
 	player.health.health_changed.connect(_on_hp_changed)
 	player.stamina_comp.stamina_changed.connect(_on_stamina_changed)
@@ -40,7 +42,7 @@ func _on_stamina_changed(current: float, maximum: float) -> void:
 func _on_amago_changed(amount: int) -> void:
 	amago_label.text = str(amount)
 
-func _on_ghost_spawned(_pos: Vector2, _amount: int) -> void:
+func _on_ghost_spawned(_pos: Vector3, _amount: int) -> void:
 	ghost_indicator.visible = true
 
 func _on_ghost_collected(_amount: int) -> void:

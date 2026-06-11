@@ -6,8 +6,10 @@
 ## Visão Geral
 
 **Gênero:** Action RPG Soulslike com estética de xilogravura nordestina  
-**Engine:** Godot 4.3+  
-**Perspectiva:** Top-down 2D  
+**Engine:** Godot 4.7 (renderer Forward+, projeto 3D)  
+**Perspectiva:** 3D com câmera top-down angulada (follow suave; movimento no plano XZ)  
+**Unidades:** metros (1 unidade = 1 m). Chão em Y=0, "para cima" = +Y.  
+**Multiplayer:** co-op até 4 jogadores (ENet, host = servidor). Solo = modo offline.  
 **Referência:** Dark Souls 1 (mundo interconectado, punição por morte, checkpoints)
 
 ---
@@ -37,14 +39,38 @@ AgresteSouls/
 
 ## Singletons (Autoloads)
 
-| Nome           | Arquivo                          | Responsabilidade                              |
-|----------------|----------------------------------|-----------------------------------------------|
-| `LunarClock`   | `autoloads/LunarClock.gd`        | Ciclo lunar: 8 fases × 10 min = 80 min/ciclo  |
-| `AmagoManager` | `autoloads/AmagoManager.gd`      | Âmago (moeda/XP), Rastro pós-morte            |
-| `GameManager`  | `autoloads/GameManager.gd`       | Estado global, morte, respawn, Cruzeiros      |
+| Nome             | Arquivo                          | Responsabilidade                              |
+|------------------|----------------------------------|-----------------------------------------------|
+| `LunarClock`     | `autoloads/LunarClock.gd`        | Ciclo lunar: 8 fases × 10 min = 80 min/ciclo  |
+| `AmagoManager`   | `autoloads/AmagoManager.gd`      | Âmago (moeda/XP), Rastro pós-morte            |
+| `GameManager`    | `autoloads/GameManager.gd`       | Estado global, morte, respawn, Cruzeiros      |
+| `Juice`          | `autoloads/Juice.gd`             | Hitstop, shake, números de dano, partículas   |
+| `NetworkManager` | `autoloads/NetworkManager.gd`    | Co-op: hospedar/entrar, troca de fase, sync   |
 
 **Regra:** Autoloads NÃO têm `class_name`. São acessados pelo nome registrado (ex.: `LunarClock.current_phase`).  
-**Ordem de carregamento:** LunarClock → AmagoManager → GameManager (AmagoManager depende de LunarClock).
+**Ordem de carregamento:** LunarClock → AmagoManager → GameManager → Juice → NetworkManager.
+
+---
+
+## Arquitetura Multiplayer (co-op)
+
+- **Host = servidor.** Menu principal oferece Solo (offline), Hospedar e Entrar (IP).
+- **Jogadores:** autoridade do próprio peer (nome do nó = id do peer; `_enter_tree` chama
+  `set_multiplayer_authority`). Movimento local responsivo; posição/rotação replicadas
+  por `MultiplayerSynchronizer`.
+- **Inimigos:** IA roda SÓ no servidor (`if not multiplayer.is_server(): return`).
+  Réplicas recebem posição via synchronizer; efeitos visuais (telegraph, flash, morte)
+  via RPCs `@rpc("authority", "call_local", "reliable")`.
+- **Dano:** `HurtboxComponent.receive_hit` roteia por RPC até o peer dono
+  (`_net_hurt.rpc_id(get_multiplayer_authority(), ...)`); invencibilidade é checada no dono.
+- **Fases:** estendem `LevelBase` (scripts/world/LevelBase.gd) — spawn de jogadores via
+  `MultiplayerSpawner` (nó `Players`), portais decididos pelo servidor
+  (`NetworkManager.change_level`), Rastro de Âmago local por peer.
+- **Cenas de fase precisam de:** `PlayerSpawn` (Marker3D), `Players` (Node3D),
+  `PlayerSpawner` (MultiplayerSpawner → ../Players) e, se houver inimigos, um
+  `MultiplayerSpawner` com as cenas dos inimigos apontando para a raiz.
+- **Modo solo funciona offline:** o `MultiplayerAPI` padrão (OfflineMultiplayerPeer) faz
+  `is_server()` retornar `true` e RPCs `call_local` rodarem localmente.
 
 ---
 
@@ -54,8 +80,8 @@ AgresteSouls/
 |--------------------|---------|------------------------------------------------------|
 | `HealthComponent`  | Node    | HP de qualquer entidade; emite `died` e `health_changed` |
 | `StaminaComponent` | Node    | Stamina com regen automático; delay configurável     |
-| `HitboxComponent`  | Area2D  | Detecta HurtboxComponent e entrega dano              |
-| `HurtboxComponent` | Area2D  | Recebe dano, respeita `is_invincible`                |
+| `HitboxComponent`  | Area3D  | Detecta HurtboxComponent e entrega dano              |
+| `HurtboxComponent` | Area3D  | Recebe dano via RPC no peer dono, respeita `is_invincible` |
 
 ---
 
@@ -63,13 +89,13 @@ AgresteSouls/
 
 | Camada | Bit | Valor | Quem usa                            |
 |--------|-----|-------|-------------------------------------|
-| 1      | 0   | 1     | Geometria de mundo (StaticBody2D)   |
-| 2      | 1   | 2     | Corpo do Player (CharacterBody2D)   |
-| 3      | 2   | 4     | Corpo dos Inimigos (CharacterBody2D)|
-| 4      | 3   | 8     | AttackHitbox do Player (Area2D)     |
-| 5      | 4   | 16    | AttackHitbox dos Inimigos (Area2D)  |
-| 6      | 5   | 32    | Hurtbox do Player (Area2D)          |
-| 7      | 6   | 64    | Hurtbox dos Inimigos (Area2D)       |
+| 1      | 0   | 1     | Geometria de mundo (StaticBody3D)   |
+| 2      | 1   | 2     | Corpo do Player (CharacterBody3D)   |
+| 3      | 2   | 4     | Corpo dos Inimigos (CharacterBody3D)|
+| 4      | 3   | 8     | AttackHitbox do Player (Area3D)     |
+| 5      | 4   | 16    | AttackHitbox dos Inimigos (Area3D)  |
+| 6      | 5   | 32    | Hurtbox do Player (Area3D)          |
+| 7      | 6   | 64    | Hurtbox dos Inimigos (Area3D)       |
 | 8      | 7   | 128   | Coletáveis (AmagoGhost, itens)      |
 | 9      | 8   | 256   | Áreas de interação (Cruzeiro, portas)|
 
@@ -178,17 +204,12 @@ tween.tween_callback(func() -> void: hitbox.monitoring = true)
 
 ## Pipeline de Assets
 
-- **Sprites:** PNG com fundo transparente. Resolução base: 16×16 ou 32×32 px (upscale via zoom da câmera 2×).
-- **Estilo:** Xilogravura nordestina — preto/branco com detalhes em sépia. Importar como `Nearest` (pixel art).
+- **Modelos/Malhas:** placeholders com primitivas (`CapsuleMesh`, `BoxMesh`, `SphereMesh`) + `StandardMaterial3D`. Cor por instância via `material_override` (duplicado com `.duplicate()` no `_ready` para flash/iframe, pois Node3D não tem `modulate`).
+- **Texturas (quando entrarem):** estilo xilogravura nordestina aplicado em albedo/emission; importar com filter `Nearest` para manter o look gravado.
+- **Iluminação:** `DirectionalLight3D` (cor/energia por fase lunar via LunarAmbiance.gd) + `WorldEnvironment` (ambient, glow, fog, SSAO, tonemap ACES).
+- **Texto flutuante:** `Label3D` com `billboard` (dano, quantidade de Âmago, placas).
 - **Áudio:** OGG para música, WAV para SFX. Música: ambiência de zabumba, triângulo, sanfona.
 - **Fontes:** Importar como `.ttf`, hinting `None` para manter look xilogravura.
-
-**Configuração de importação para sprites (pixel art):**
-```
-filter = false
-mipmaps = false
-compress/mode = 0 (Lossless)
-```
 
 ---
 
@@ -206,11 +227,15 @@ compress/mode = 0 (Lossless)
 
 ## Adicionando um Novo Inimigo
 
-1. Crie `scenes/enemies/NomeInimigo/NomeInimigo.gd` extendendo `CharacterBody2D`.
-2. Copie a estrutura de `Calango.tscn` como base.
-3. Ajuste `AMAGO_REWARD`, `ATTACK_DAMAGE`, `DETECTION_RANGE` e a lógica da máquina de estados.
+**Variante simples (só números):** copie `Cangaceiro.tscn` — reusa `Calango.gd` e ajusta os
+`@export` (`max_hp`, `attack_damage`, `chase_speed`, `amago_reward`, etc.) direto na cena.
+
+**Inimigo com comportamento novo:**
+1. Crie `scenes/enemies/NomeInimigo/NomeInimigo.gd` extendendo `CharacterBody3D`.
+2. Copie a estrutura de `Calango.tscn` como base (inclui `MultiplayerSynchronizer`).
+3. Ajuste os `@export` e a lógica da máquina de estados (IA só no servidor!).
 4. Adicione ao grupo `"enemy"` no `_ready()`.
-5. Configure o `EnemySpawner` na cena destino para usar a nova `PackedScene`.
+5. Configure o `EnemySpawner` na cena destino e registre a cena no `MultiplayerSpawner` de inimigos.
 
 ---
 

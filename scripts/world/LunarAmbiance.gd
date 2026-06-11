@@ -1,30 +1,42 @@
-## Tinge todo o canvas 2D do mundo conforme a fase lunar atual.
-## Anexar a um nó CanvasModulate na raiz de cada cena de mundo.
-## NÃO afeta CanvasLayer (HUD), apenas o mundo — a UI continua legível.
-extends CanvasModulate
+## Ilumina o mundo 3D conforme a fase lunar atual.
+## Anexar a um DirectionalLight3D na raiz de cada cena de mundo,
+## com um WorldEnvironment irmão (para a luz ambiente).
+extends DirectionalLight3D
 
-## Cor de luz ambiente por fase (valores > 1.0 clareiam, < 1.0 escurecem).
-const PHASE_COLORS: Dictionary = {
-	0: Color(0.28, 0.30, 0.52),  # Lua Nova — escuridão azulada
-	1: Color(0.52, 0.52, 0.66),  # Quarto Crescente — penumbra
-	2: Color(0.82, 0.82, 0.88),  # Meia Lua Crescente — neutro
-	3: Color(0.92, 0.90, 0.82),  # Gibosa Crescente — quente suave
-	4: Color(1.12, 1.10, 0.98),  # Lua Cheia — claridade prateada
-	5: Color(0.80, 0.76, 0.74),  # Gibosa Minguante — frio
-	6: Color(0.58, 0.54, 0.60),  # Meia Lua Minguante — sombrio
-	7: Color(0.38, 0.36, 0.46),  # Quarto Minguante — agonia
+## Configuração de luz por fase: cor/energia da lua + luz ambiente.
+const PHASE_LIGHT: Dictionary = {
+	0: {"color": Color(0.45, 0.50, 0.85), "energy": 0.25, "ambient": Color(0.08, 0.09, 0.16)},  # Lua Nova
+	1: {"color": Color(0.60, 0.62, 0.85), "energy": 0.50, "ambient": Color(0.12, 0.13, 0.20)},  # Quarto Crescente
+	2: {"color": Color(0.78, 0.80, 0.95), "energy": 0.80, "ambient": Color(0.17, 0.18, 0.24)},  # Meia Lua Crescente
+	3: {"color": Color(0.92, 0.88, 0.80), "energy": 1.00, "ambient": Color(0.20, 0.19, 0.22)},  # Gibosa Crescente
+	4: {"color": Color(1.00, 0.98, 0.90), "energy": 1.30, "ambient": Color(0.24, 0.24, 0.30)},  # Lua Cheia
+	5: {"color": Color(0.80, 0.78, 0.80), "energy": 0.90, "ambient": Color(0.18, 0.17, 0.20)},  # Gibosa Minguante
+	6: {"color": Color(0.60, 0.56, 0.68), "energy": 0.60, "ambient": Color(0.13, 0.12, 0.18)},  # Meia Lua Minguante
+	7: {"color": Color(0.45, 0.42, 0.58), "energy": 0.35, "ambient": Color(0.09, 0.08, 0.14)},  # Quarto Minguante
 }
 
 const TRANSITION_SECS: float = 2.5
 
+@onready var _env: WorldEnvironment = get_parent().get_node_or_null("WorldEnvironment")
+
 func _ready() -> void:
 	LunarClock.phase_changed.connect(_on_phase_changed)
-	color = _color_for(LunarClock.current_phase)
+	_apply(LunarClock.current_phase, true)
 
 func _on_phase_changed(new_phase: int, _old_phase: int) -> void:
-	var tween := create_tween()
-	tween.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-	tween.tween_property(self, "color", _color_for(new_phase), TRANSITION_SECS)
+	_apply(new_phase, false)
 
-func _color_for(phase: int) -> Color:
-	return PHASE_COLORS.get(int(phase), Color.WHITE)
+func _apply(phase: int, instant: bool) -> void:
+	var cfg: Dictionary = PHASE_LIGHT.get(int(phase), PHASE_LIGHT[2])
+	if instant:
+		light_color = cfg.color
+		light_energy = cfg.energy
+		if _env and _env.environment:
+			_env.environment.ambient_light_color = cfg.ambient
+		return
+	var tween := create_tween().set_parallel(true)
+	tween.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	tween.tween_property(self, "light_color", cfg.color, TRANSITION_SECS)
+	tween.tween_property(self, "light_energy", cfg.energy, TRANSITION_SECS)
+	if _env and _env.environment:
+		tween.tween_property(_env.environment, "ambient_light_color", cfg.ambient, TRANSITION_SECS)

@@ -4,19 +4,20 @@
 extends Node
 
 signal amago_changed(new_amount: int)
-signal ghost_spawned(at_position: Vector2, amount: int)
+signal ghost_spawned(at_position: Vector3, amount: int)
 signal ghost_collected(amount: int)
 signal ghost_lost
 
 ## Quantos minutos o Rastro persiste (20 minutos reais de jogo)
 const GHOST_LIFETIME_SECS: float = 1200.0
-## Raio de atração automática em pixels (~3m no espaço de jogo)
-const AUTO_ATTRACT_RADIUS: float = 96.0
+## Raio de atração automática em metros
+const AUTO_ATTRACT_RADIUS: float = 3.0
 
 var current_amago: int = 0
 
 var _ghost_active: bool = false
-var _ghost_position: Vector2 = Vector2.ZERO
+var _ghost_position: Vector3 = Vector3.ZERO
+var _ghost_level: String = ""
 var _ghost_amount: int = 0
 var _ghost_timer: float = 0.0
 
@@ -50,21 +51,24 @@ func on_player_death() -> void:
 	if _ghost_active:
 		_destroy_ghost()
 	_ghost_amount = current_amago
-	_ghost_position = Vector2.ZERO  # sobrescrito pelo chamador via spawn_ghost_at
+	_ghost_position = Vector3.ZERO  # sobrescrito pelo chamador via spawn_ghost_at
 	current_amago = 0
 	amago_changed.emit(current_amago)
 
 ## Instancia o Rastro no mundo. Chamado pelo Player ao morrer.
-func spawn_ghost_at(world_position: Vector2) -> void:
+func spawn_ghost_at(world_position: Vector3) -> void:
 	if _ghost_amount <= 0:
 		return
 	_ghost_position = world_position
+	# Guarda em qual fase o Rastro ficou, para reaparecer ao revisitar.
+	var scene := get_tree().current_scene
+	_ghost_level = scene.scene_file_path if scene else ""
 	_ghost_active = true
 	_ghost_timer = GHOST_LIFETIME_SECS
 	ghost_spawned.emit(_ghost_position, _ghost_amount)
 
 ## Tenta coletar o Rastro de uma posição. Retorna o valor recuperado (0 se falhou).
-func try_collect_ghost(collector_position: Vector2) -> int:
+func try_collect_ghost(collector_position: Vector3) -> int:
 	if not _ghost_active:
 		return 0
 	if collector_position.distance_to(_ghost_position) > AUTO_ATTRACT_RADIUS * 2.0:
@@ -78,8 +82,12 @@ func try_collect_ghost(collector_position: Vector2) -> int:
 	ghost_collected.emit(recovered)
 	return recovered
 
-func get_ghost_position() -> Vector2:
+func get_ghost_position() -> Vector3:
 	return _ghost_position
+
+## Caminho da cena onde o Rastro foi deixado.
+func get_ghost_level() -> String:
+	return _ghost_level
 
 func get_ghost_amount() -> int:
 	return _ghost_amount
