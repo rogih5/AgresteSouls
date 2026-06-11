@@ -26,14 +26,14 @@ for (const p of PILLARS) {
 
 // Iluminação por fase lunar (porta a tabela do LunarAmbiance do projeto Godot).
 const PHASE_LIGHT = [
-  { moon: 0x7280d9, energy: 0.30, hemi: 0.22, fog: 0x0c0e1a },  // Lua Nova
-  { moon: 0x99a0d9, energy: 0.55, hemi: 0.34, fog: 0x12131f },  // Quarto Crescente
-  { moon: 0xc7ccf2, energy: 0.85, hemi: 0.46, fog: 0x191b26 },  // Meia Lua Crescente
-  { moon: 0xebe0cc, energy: 1.05, hemi: 0.52, fog: 0x1d1b22 },  // Gibosa Crescente
-  { moon: 0xfff9e6, energy: 1.35, hemi: 0.62, fog: 0x232532 },  // Lua Cheia
-  { moon: 0xccc7cc, energy: 0.95, hemi: 0.48, fog: 0x1b191f },  // Gibosa Minguante
-  { moon: 0x998fad, energy: 0.65, hemi: 0.36, fog: 0x141220 },  // Meia Lua Minguante
-  { moon: 0x736b94, energy: 0.40, hemi: 0.26, fog: 0x0e0c17 },  // Quarto Minguante
+  { moon: 0x7280d9, energy: 0.45, hemi: 0.32, fog: 0x0c0e1a },  // Lua Nova
+  { moon: 0x99a0d9, energy: 0.75, hemi: 0.46, fog: 0x12131f },  // Quarto Crescente
+  { moon: 0xc7ccf2, energy: 1.10, hemi: 0.60, fog: 0x191b26 },  // Meia Lua Crescente
+  { moon: 0xebe0cc, energy: 1.35, hemi: 0.68, fog: 0x1d1b22 },  // Gibosa Crescente
+  { moon: 0xfff9e6, energy: 1.70, hemi: 0.80, fog: 0x232532 },  // Lua Cheia
+  { moon: 0xccc7cc, energy: 1.20, hemi: 0.62, fog: 0x1b191f },  // Gibosa Minguante
+  { moon: 0x998fad, energy: 0.85, hemi: 0.48, fog: 0x141220 },  // Meia Lua Minguante
+  { moon: 0x736b94, energy: 0.55, hemi: 0.36, fog: 0x0e0c17 },  // Quarto Minguante
 ];
 
 export function buildWorld(scene) {

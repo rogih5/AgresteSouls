@@ -25,8 +25,16 @@ const STAMINA_DELAY = 1.5;
 const COST_ATTACK = 15;
 const COST_DODGE = 25;
 
-const CAM_OFFSET = new THREE.Vector3(0, 15, 11);
+// Câmera mais baixa e próxima: mostra horizonte, lua e profundidade (visão 3D).
+const CAM_OFFSET = new THREE.Vector3(0, 9.5, 10);
 const CAM_FOLLOW = 7.5;
+
+// Habilidades: cooldown em segundos + custo de stamina.
+export const SKILL_DEFS = {
+  fire: { cd: 6, cost: 30 },    // Q — Fogo do Boitatá (cone de chamas)
+  heal: { cd: 12, cost: 0 },    // E — Benção do Padim (cura)
+  slam: { cd: 9, cost: 45 },    // R — Pisão do Sertão (área + empurrão)
+};
 
 export class LocalPlayer {
   constructor(scene, camera, fx, net, name) {
@@ -62,6 +70,9 @@ export class LocalPlayer {
 
     this.dead = false;
 
+    // Cooldowns restantes (segundos) por habilidade.
+    this.cooldowns = { fire: 0, heal: 0, slam: 0 };
+
     this._camPos = this.pos.clone().add(CAM_OFFSET);
 
     // Arco visual do golpe.
@@ -81,6 +92,9 @@ export class LocalPlayer {
       if (e.code === 'KeyJ') this.tryAttack();
       if (e.code === 'Space') { e.preventDefault(); this.tryDodge(); }
       if (e.code === 'KeyF') this.net.send({ t: 'rest' });
+      if (e.code === 'KeyQ') this.trySkill('fire');
+      if (e.code === 'KeyE') this.trySkill('heal');
+      if (e.code === 'KeyR') this.trySkill('slam');
     });
     addEventListener('keyup', (e) => this.keys.delete(e.code));
     addEventListener('mousedown', (e) => { if (e.button === 0 && !e.target.closest('.overlay')) this.tryAttack(); });
@@ -117,6 +131,16 @@ export class LocalPlayer {
     this.swingArc.material.opacity = 0.85;
     this.swingArc.material.color.setHex(index === 2 ? 0xffc46b : 0xffe9a8);
     this.fx.shake(0.12);
+  }
+
+  trySkill(kind) {
+    if (this.dead || this.state === 'dodge') return;
+    const def = SKILL_DEFS[kind];
+    if (!def || this.cooldowns[kind] > 0) return;
+    if (!this.spendStamina(def.cost)) return;
+    this.cooldowns[kind] = def.cd;
+    // O servidor aplica dano/cura e retransmite o efeito para todos.
+    this.net.send({ t: 'skill', kind, dx: this.facing.x, dz: this.facing.z });
   }
 
   tryDodge() {
@@ -178,6 +202,11 @@ export class LocalPlayer {
     // Stamina.
     if (this._staminaBlock > 0) this._staminaBlock -= dt;
     else this.stamina = Math.min(STAMINA_MAX, this.stamina + STAMINA_REGEN * dt);
+
+    // Cooldowns das habilidades.
+    for (const k in this.cooldowns) {
+      if (this.cooldowns[k] > 0) this.cooldowns[k] = Math.max(0, this.cooldowns[k] - dt);
+    }
 
     if (this._comboWindow > 0) this._comboWindow -= dt;
 

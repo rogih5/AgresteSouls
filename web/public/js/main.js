@@ -10,7 +10,7 @@ import { buildWorld, CRUZEIROS } from './world.js';
 import { EntityRegistry, flashMesh, unflashMesh } from './entities.js';
 import { FX } from './fx.js';
 import { HUD } from './hud.js';
-import { LocalPlayer } from './player.js';
+import { LocalPlayer, SKILL_DEFS } from './player.js';
 
 // ─── Renderer / cena ─────────────────────────────────────────────────────────
 const canvas = document.getElementById('game');
@@ -20,7 +20,7 @@ renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.05;
+renderer.toneMappingExposure = 1.18;
 
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(50, innerWidth / innerHeight, 0.1, 500);
@@ -183,6 +183,36 @@ net.on('hp', (msg) => {
   hud.setHp(msg.hp, msg.maxHp);
 });
 
+net.on('skill_used', (msg) => {
+  const origin = { x: msg.x, z: msg.z };
+  if (msg.kind === 'fire') {
+    // Língua de fogo do Boitatá: rajadas ao longo do cone.
+    for (let i = 1; i <= 6; i++) {
+      const spread = i * 0.18;
+      fx.burst(
+        { x: msg.x + msg.dx * i + (Math.random() - 0.5) * spread, y: 0.2, z: msg.z + msg.dz * i + (Math.random() - 0.5) * spread },
+        i % 2 === 0 ? 0xff7a26 : 0xffae3d, 8, 2.6, 0.5
+      );
+    }
+    fx.shake(0.3);
+  } else if (msg.kind === 'slam') {
+    // Onda de choque circular de poeira.
+    for (let i = 0; i < 10; i++) {
+      const a = (i / 10) * Math.PI * 2;
+      fx.burst({ x: msg.x + Math.cos(a) * 2.2, y: 0.1, z: msg.z + Math.sin(a) * 2.2 }, 0x9c7c4c, 6, 3.2, 0.55);
+    }
+    fx.burst(origin, 0xc9a45a, 10, 4.5, 0.5);
+    fx.shake(0.8);
+    fx.hitstop(0.06, 0.1);
+  } else if (msg.kind === 'heal') {
+    const pos = (msg.id === myId && player)
+      ? player.pos
+      : (registry.remotePlayers.get(msg.id)?.group.position ?? origin);
+    fx.burst(pos, 0x8ce08a, 18, 4, 0.8);
+    fx.burst(pos, 0xd8f2c0, 8, 2.5, 0.6);
+  }
+});
+
 net.on('rested', (msg) => {
   fx.burst({ x: msg.x, z: msg.z }, 0xf2e3a0, 24, 5, 1.0);
   if (player) fx.burst(player.pos, 0x8ce08a, 14, 4, 0.7);
@@ -237,9 +267,33 @@ const clock = new THREE.Clock();
 let stateTimer = 0;
 let ghostPulse = 0;
 
+// Handle de depuração (capturas de tela, inspeção de estado em dev).
+window.__game = {
+  renderer, composer, scene, camera,
+  get player() { return player; },
+  step(dt = 0.05) { tick(dt); },
+  capture(w = 480) {
+    composer.render();
+    const src = renderer.domElement;
+    const c = document.createElement('canvas');
+    c.width = w;
+    c.height = Math.round((src.height / src.width) * w);
+    c.getContext('2d').drawImage(src, 0, 0, c.width, c.height);
+    return c.toDataURL('image/jpeg', 0.6);
+  },
+};
+
 function loop() {
   requestAnimationFrame(loop);
-  const realDt = Math.min(0.05, clock.getDelta());
+  tick();
+}
+
+// Aba em segundo plano: rAF é pausado pelo navegador, mas em co-op o jogo
+// precisa continuar simulando (senão o jogador congela para os outros).
+setInterval(() => { if (document.hidden) tick(); }, 50);
+
+function tick(forcedDt) {
+  const realDt = forcedDt ?? Math.min(0.05, clock.getDelta());
   fx.update(realDt);
   const dt = realDt * fx.timeScale;
 
@@ -247,6 +301,9 @@ function loop() {
     player.update(dt);
     registry.update(dt);
     hud.setStamina(player.stamina, 220);
+    for (const k in player.cooldowns) {
+      hud.setCooldown(k, player.cooldowns[k] / SKILL_DEFS[k].cd);
+    }
 
     // Prompt do Cruzeiro.
     const nearCruzeiro = CRUZEIROS.some(c => Math.hypot(player.pos.x - c.x, player.pos.z - c.z) < 3);
@@ -267,6 +324,6 @@ function loop() {
     ghostMesh.userData.orb.scale.setScalar(s);
   }
 
-  composer.render();
+  if (!document.hidden) composer.render();
 }
 loop();

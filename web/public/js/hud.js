@@ -13,7 +13,18 @@ export class HUD {
       ghostHint: document.getElementById('ghost-hint'),
       death: document.getElementById('death-screen'),
       vignette: document.getElementById('damage-vignette'),
+      skillCd: {
+        fire: document.querySelector('#skill-fire .cd'),
+        heal: document.querySelector('#skill-heal .cd'),
+        slam: document.querySelector('#skill-slam .cd'),
+      },
     };
+  }
+
+  // fraction: 1 = acabou de usar (tampa cheia), 0 = pronta.
+  setCooldown(kind, fraction) {
+    const el = this.el.skillCd[kind];
+    if (el) el.style.height = `${Math.max(0, Math.min(1, fraction)) * 100}%`;
   }
 
   show() { this.el.hud.classList.remove('hidden'); }

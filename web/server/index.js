@@ -30,9 +30,16 @@ const PHASE_SECS = 300;             // fase lunar: 5 min (8 fases por ciclo)
 
 const SAFE_X = 22;                  // a oeste disso é zona segura (hub)
 
+// Habilidades (cooldowns validados aqui; cliente mostra o HUD).
+const SKILLS = {
+  fire: { cd: 6, dmg: 40, range: 6.5, arcCos: Math.cos((35 * Math.PI) / 180) },
+  heal: { cd: 12, amount: 140 },
+  slam: { cd: 9, dmg: 25, radius: 3.6, knock: 8 },
+};
+
 const ENEMY_TYPES = {
   calango: {
-    maxHp: 80, dmg: 15, reward: 50,
+    maxHp: 80, dmg: 12, reward: 50,
     patrolSpeed: 2.2, chaseSpeed: 4.5, fleeSpeed: 5.0,
     detection: 12, attackRange: 1.9, cooldown: 1.6, windup: 0.34,
   },
@@ -125,6 +132,7 @@ wss.on('connection', (ws) => {
     ghost: null,             // { x, z, amount, timer }
     checkpoint: { ...CRUZEIROS[0] },
     lastAttack: 0,
+    skillAt: { fire: 0, heal: 0, slam: 0 },
   };
   players.set(id, player);
 
@@ -184,6 +192,43 @@ function handleMessage(p, msg) {
       }
       break;
     }
+    case 'skill': {
+      if (p.dead) break;
+      const cfg = SKILLS[msg.kind];
+      if (!cfg) break;
+      const now = Date.now();
+      // Margem de 10% para latência; o cliente também trava no HUD.
+      if (now - p.skillAt[msg.kind] < cfg.cd * 1000 * 0.9) break;
+      p.skillAt[msg.kind] = now;
+      const dx = Number(msg.dx) || 0, dz = Number(msg.dz) || 1;
+
+      if (msg.kind === 'fire') {
+        // Cone de chamas à frente (Fogo do Boitatá).
+        for (const e of enemies.values()) {
+          if (e.state === 'dead') continue;
+          const ex = e.x - p.x, ez = e.z - p.z;
+          const d = Math.hypot(ex, ez);
+          if (d > cfg.range) continue;
+          const dot = d > 0.001 ? (ex * dx + ez * dz) / d : 1;
+          if (dot < cfg.arcCos) continue;
+          hurtEnemy(e, cfg.dmg, p);
+        }
+      } else if (msg.kind === 'slam') {
+        // Pancada no chão em volta (Pisão do Sertão) com empurrão forte.
+        for (const e of enemies.values()) {
+          if (e.state === 'dead') continue;
+          if (dist(e.x, e.z, p.x, p.z) > cfg.radius) continue;
+          hurtEnemy(e, cfg.dmg, p, cfg.knock);
+        }
+      } else if (msg.kind === 'heal') {
+        // Benção do Padim.
+        p.hp = Math.min(p.maxHp, p.hp + cfg.amount);
+        send(p, { t: 'hp', hp: p.hp, maxHp: p.maxHp });
+      }
+
+      broadcast({ t: 'skill_used', id: p.id, kind: msg.kind, x: p.x, z: p.z, dx, dz });
+      break;
+    }
     case 'rest': {
       // Precisa estar perto de um Cruzeiro.
       const near = CRUZEIROS.find(c => dist(p.x, p.z, c.x, c.z) < 3.0);
@@ -212,13 +257,13 @@ function publicEnemy(e) {
 }
 
 // ─── Combate ─────────────────────────────────────────────────────────────────
-function hurtEnemy(e, dmg, attacker) {
+function hurtEnemy(e, dmg, attacker, knock = 4.0) {
   e.hp -= dmg;
   // Knockback para longe do atacante.
   const kx = e.x - attacker.x, kz = e.z - attacker.z;
   const kd = Math.hypot(kx, kz) || 1;
-  e.kx = (kx / kd) * 4.0;
-  e.kz = (kz / kd) * 4.0;
+  e.kx = (kx / kd) * knock;
+  e.kz = (kz / kd) * knock;
   if (e.hp <= 0) {
     e.hp = 0;
     e.state = 'dead';
